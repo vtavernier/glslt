@@ -119,13 +119,15 @@ impl TemplateDefinition {
             ast.prototype.parameters.push(
                 FunctionParameterDeclarationData::Named(
                     None,
-                    FunctionParameterDeclarator {
+                    FunctionParameterDeclaratorData {
                         ty: ep.decl_type.clone(),
-                        ident: ArrayedIdentifier {
+                        ident: ArrayedIdentifierData {
                             ident: IdentifierData(ep.gen_id.clone()).into(),
                             array_spec: ep.array.clone(),
-                        },
-                    },
+                        }
+                        .into(),
+                    }
+                    .into(),
                 )
                 .into(),
             );
@@ -220,7 +222,7 @@ pub fn parse_definition_as_template(
             FunctionParameterDeclarationData::Unnamed(_, t) => (None, t),
         };
 
-        if let TypeSpecifierNonArray::TypeName(tn) = &t.ty {
+        if let TypeSpecifierNonArrayData::TypeName(tn) = &*t.ty {
             if declared_pointer_types.contains_key(&tn.0) {
                 if t.array_specifier.is_some() {
                     return Err(Error::ArrayedTemplateParameter {

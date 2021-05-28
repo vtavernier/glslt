@@ -81,8 +81,8 @@ impl InstantiateTemplate {
         expr: &mut Expr,
         scope: &'s mut dyn Scope,
     ) {
-        match expr {
-            Expr::FunCall(fun, args) => {
+        match &mut **expr {
+            ExprData::FunCall(fun, args) => {
                 // First visit the arguments to transform inner lambdas first
                 for arg in args.iter_mut() {
                     arg.visit_mut(&mut InstantiateTemplateUnit {
@@ -98,7 +98,7 @@ impl InstantiateTemplate {
                         match scope.transform_arg_call(expr, self) {
                             Ok(()) => {}
                             Err(Error::TransformAsTemplate) => {
-                                if let Expr::FunCall(ident, args) = expr {
+                                if let ExprData::FunCall(ident, args) = &mut **expr {
                                     if let Some(ident) = ident.as_ident_or_type_name_mut() {
                                         if let Some(template) = scope.get_template(ident) {
                                             if let Err(error) =
@@ -156,7 +156,7 @@ impl InstantiateTemplate {
         // Add the captured parameters to the end of the call
         for ep in local_scope.captured_parameters().iter() {
             // TODO: Preserve span information
-            args.push(Expr::Variable(IdentifierData(ep.ident.clone()).into()));
+            args.push(ExprData::Variable(IdentifierData(ep.ident.clone()).into()).into());
         }
 
         Ok(())
@@ -169,7 +169,7 @@ impl InstantiateTemplate {
         decl_type: TypeSpecifier,
         array: Option<ArraySpecifier>,
     ) {
-        if let TypeSpecifierNonArray::TypeName(tn) = &decl_type.ty {
+        if let TypeSpecifierNonArrayData::TypeName(tn) = &*decl_type.ty {
             if scope.declared_pointer_types().contains_key(tn.0.as_str()) {
                 // This is a template function argument, do not register it for capture
                 return;
@@ -233,7 +233,7 @@ impl VisitorMut for InstantiateTemplateUnit<'_> {
     }
 
     fn visit_expr(&mut self, e: &mut Expr) -> Visit {
-        if let Expr::FunCall(_, _) = e {
+        if let ExprData::FunCall(_, _) = **e {
             self.instantiator.visit_fun_call(e, self.scope);
 
             // We already visited arguments in pre-order

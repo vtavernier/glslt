@@ -69,7 +69,7 @@ impl<'p, 'q> LocalScope<'p, 'q> {
 
         impl VisitorMut for Capturer<'_> {
             fn visit_expr(&mut self, e: &mut Expr) -> Visit {
-                if let Expr::Variable(ident) = e {
+                if let ExprData::Variable(ident) = &mut **e {
                     // This is a variable. If it's in the symbol table, it needs to be
                     // captured and renamed
 
@@ -182,8 +182,8 @@ impl<'p, 'q> LocalScope<'p, 'q> {
         instantiator: &mut InstantiateTemplate,
         prototype: &FunctionPrototype,
     ) {
-        match e {
-            Expr::FunCall(fun, src_args) => {
+        match &mut **e {
+            ExprData::FunCall(fun, src_args) => {
                 // Only consider raw identifiers for function names
                 if let Some(ident) = fun.as_ident_or_type_name_mut() {
                     if let Some(arg) = self
@@ -196,8 +196,8 @@ impl<'p, 'q> LocalScope<'p, 'q> {
                         //
                         // Else, replace the entire function call with the templated
                         // expression
-                        let lambda_expr = match &arg.0 {
-                            Expr::Variable(arg_ident) => {
+                        let lambda_expr = match &*arg.0 {
+                            ExprData::Variable(arg_ident) => {
                                 if let Some(target) =
                                     self.resolve_function_name(arg_ident.0.as_str())
                                 {
@@ -230,9 +230,10 @@ impl<'p, 'q> LocalScope<'p, 'q> {
                                     Some(arg.0.clone())
                                 }
                             }
-                            other => {
+                            _ => {
+                                let other = arg.0.clone();
                                 debug!("in {}: lambda expression: {:?}", self.name, other);
-                                Some(other.clone())
+                                Some(other)
                             }
                         };
 
@@ -301,8 +302,8 @@ impl Scope for LocalScope<'_, '_> {
             .get(name)
             .and_then(|id| self.template_parameters.get(*id))
         {
-            match &arg.0 {
-                Expr::Variable(ident) => {
+            match &*arg.0 {
+                ExprData::Variable(ident) => {
                     // Only resolve to parent scope if this is the name of a parameter
                     if self
                         .template_parameters_by_name
@@ -341,13 +342,16 @@ impl Scope for LocalScope<'_, '_> {
                 }
                 // This is a lambda expression, we can't resolve it to a function name
                 // TODO: Propagate error
-                other => self
-                    .declared_pointer_types()
-                    .get(arg.1)
-                    .map(|pointer_type| ResolvedArgument {
-                        body: ResolvedArgumentExpr::Lambda(other.clone()),
-                        pointer_type,
-                    }),
+                _ => {
+                    let other = arg.0.clone();
+
+                    self.declared_pointer_types()
+                        .get(arg.1)
+                        .map(|pointer_type| ResolvedArgument {
+                            body: ResolvedArgumentExpr::Lambda(other),
+                            pointer_type,
+                        })
+                }
             }
         } else {
             // No argument matching this, delegate to parent scope
@@ -360,8 +364,8 @@ impl Scope for LocalScope<'_, '_> {
         expr: &mut Expr,
         instantiator: &mut InstantiateTemplate,
     ) -> crate::Result<()> {
-        match expr {
-            Expr::FunCall(ident, _) => {
+        match &mut **expr {
+            ExprData::FunCall(ident, _) => {
                 if let Some(ident) = ident.as_ident_or_type_name() {
                     if let Some(tplarg) = self
                         .template_parameters_by_name
@@ -402,7 +406,7 @@ fn lambda_instantiate(tgt: &mut Expr, source_parameters: &[Expr], prototype: &Fu
 
     impl VisitorMut for V<'_> {
         fn visit_expr(&mut self, e: &mut Expr) -> Visit {
-            if let Expr::Variable(ident) = e {
+            if let ExprData::Variable(ident) = &mut **e {
                 if let Some(repl) = self.subs.get(ident.0.as_str()) {
                     *e = (*repl).clone();
 

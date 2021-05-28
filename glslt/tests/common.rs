@@ -16,7 +16,7 @@ macro_rules! assert_eq {
     ($left:expr , $right:expr) => ({
         match (&($left), &($right)) {
             (left_val, right_val) => {
-                if !left_val.content_eq(&right_val) {
+                if !left_val.eq(&right_val) {
                     panic!("assertion failed: `(left == right)`\
                           \n\
                           \n{}\
@@ -29,7 +29,7 @@ macro_rules! assert_eq {
     ($left:expr , $right:expr, $($arg:tt)*) => ({
         match (&($left), &($right)) {
             (left_val, right_val) => {
-                if !left_val.content_eq(&right_val) {
+                if !left_val.eq(&right_val) {
                     panic!("assertion failed: `(left == right)`: {}\
                           \n\
                           \n{}\

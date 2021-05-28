@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::path::{self, PathBuf};
 
-use glsl_lang::ast::Path;
+use glsl_lang::ast::{Path, PathData};
 use thiserror::Error;
 
 use super::PreprocessorFs;
@@ -77,15 +77,15 @@ impl PreprocessorFs for StdPreprocessorFs {
     }
 
     fn resolve(&self, base_path: &path::Path, path: &Path) -> Result<PathBuf, Self::Error> {
-        match &path {
-            Path::Absolute(abs_path) => {
+        match &**path {
+            PathData::Absolute(abs_path) => {
                 let path_buf = PathBuf::from(abs_path);
 
                 self.include
                     .iter()
                     .find_map(|dir| std::fs::canonicalize(dir.join(&path_buf)).ok())
             }
-            Path::Relative(path) => {
+            PathData::Relative(path) => {
                 let path = PathBuf::from(path);
 
                 std::iter::once(base_path)

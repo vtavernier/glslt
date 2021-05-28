@@ -141,9 +141,9 @@ impl MinUnit {
                 let csn = self
                     .this
                     .dag
-                    .declare_symbol(ExternalId::Declaration(match def {
-                        PreprocessorDefine::ObjectLike { ident, .. } => &ident.0,
-                        PreprocessorDefine::FunctionLike { ident, .. } => &ident.0,
+                    .declare_symbol(ExternalId::Declaration(match &**def {
+                        PreprocessorDefineData::ObjectLike { ident, .. } => &ident.0,
+                        PreprocessorDefineData::FunctionLike { ident, .. } => &ident.0,
                     }));
 
                 self.current_scope_name = Some(csn);
@@ -151,15 +151,15 @@ impl MinUnit {
                 // Check the list of identifiers that should not be considered external
                 // dependencies
                 let mut scope_identifiers = std::collections::HashSet::new();
-                if let PreprocessorDefine::FunctionLike { args, .. } = def {
+                if let PreprocessorDefineData::FunctionLike { args, .. } = &**def {
                     scope_identifiers.extend(args.iter().map(|a| a.0.as_str()));
                 }
 
                 // The value is not parsed by the glsl crate, so we need to extract identifiers
                 // ourselves
-                for ident in extract_idents(&match def {
-                    PreprocessorDefine::ObjectLike { value, .. } => value,
-                    PreprocessorDefine::FunctionLike { value, .. } => value,
+                for ident in extract_idents(&match &**def {
+                    PreprocessorDefineData::ObjectLike { value, .. } => value,
+                    PreprocessorDefineData::FunctionLike { value, .. } => value,
                 }) {
                     let symbol = self.this.dag.declare_symbol(ExternalId::Declaration(ident));
                     self.this.dag.add_dep(csn, symbol);
@@ -329,7 +329,10 @@ impl TransformUnit for MinUnit {
             other => match other {
                 ExternalDeclarationData::FunctionDefinition(_) => {}
                 ExternalDeclarationData::Preprocessor(ref pp) => match &pp.content {
-                    PreprocessorData::Define(PreprocessorDefine::ObjectLike { ident, .. }) => {
+                    PreprocessorData::Define(PreprocessorDefine {
+                        content: PreprocessorDefineData::ObjectLike { ident, .. },
+                        ..
+                    }) => {
                         self.extend_dag(pp);
 
                         self.external_declarations.insert(
@@ -337,8 +340,9 @@ impl TransformUnit for MinUnit {
                             Arc::new(Node::new(other, extdecl.span)),
                         );
                     }
-                    PreprocessorData::Define(PreprocessorDefine::FunctionLike {
-                        ident, ..
+                    PreprocessorData::Define(PreprocessorDefine {
+                        content: PreprocessorDefineData::FunctionLike { ident, .. },
+                        ..
                     }) => {
                         self.extend_dag(pp);
 
@@ -365,7 +369,7 @@ impl TransformUnit for MinUnit {
                     DeclarationData::InitDeclaratorList(idl) => {
                         // TODO: Handle variable declarations at top-level using
                         // InitDeclaratorList. For now, this only handles struct declarations.
-                        if let TypeSpecifierNonArray::Struct(ss) = &idl.head.ty.ty.ty {
+                        if let TypeSpecifierNonArrayData::Struct(ss) = &*idl.head.ty.ty.ty {
                             // It's a struct declaration
                             if let Some(tn) = &ss.name {
                                 // Dependency key
